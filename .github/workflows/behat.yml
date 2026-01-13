@@ -42,9 +42,17 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: pgsql, zip, gd, xmlrpc, soap, intl
-          ini-values: max_input_vars=5000
+          extensions: pgsql, zip, gd, xmlrpc, soap, intl, mbstring, curl, json, xml
+          ini-values: max_input_vars=5000, memory_limit=512M
           coverage: none
+      
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h 127.0.0.1 -p 5432 -U moodle; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+          echo "PostgreSQL is ready!"
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -79,6 +87,14 @@ jobs:
           MOODLE_BRANCH: ${{ matrix.moodle-branch }}
           IGNORE_PATHS: 'ignore'
           IGNORE_NAMES: 'ignore_name.php'
+          MOODLE_DOCKER_DB_PORT: 5432
+      
+      - name: PHP Debug Info
+        if: failure()
+        run: |
+          php -v
+          php -m
+          php -i | grep pgsql
       
       - name: Run Behat tests
         run: moodle-plugin-ci behat --profile chrome
